@@ -147,7 +147,7 @@ def fillTableCurrencyList(connection, cursor):
 
 #Создание таблиц CURRENCY_LIST и CURRENCY_RATES , если этих таблиц в БД еще нет
 def createTables(connection, cursor):
-    cursor.execute("SELECT count(*) count FROM dba_tables where table_name = 'CURRENCY_LIST'")
+    cursor.execute("SELECT count(*) count FROM dba_tables where table_name = 'CURRENCY_LIST'") 
     table1 = cursor.fetchone()
     if not table1[0]:
         try:
@@ -213,7 +213,7 @@ def checkDate(date):
         return False
     return True
 
-#Функция валидации стартовой денежной суммы.
+#Функция валидации стартовой денежной суммы.(1-1000000)
 def checkMoney(money):
     if not money.isdigit():
         return False
@@ -234,7 +234,7 @@ def printResult(resultList, cursor):
         print(curList[items[1][3:]], end=' ')
         print(items[2])
     print("Количество дней: " + str(len(resultList)))
-
+ 
 def main():
     lib_dir = input("Введите путь к Oracle Instant Client ")
     cx_Oracle.init_oracle_client(lib_dir=lib_dir)
