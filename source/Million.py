@@ -147,22 +147,18 @@ def fillTableCurrencyList(connection, cursor):
 
 #Создание таблиц CURRENCY_LIST и CURRENCY_RATES , если этих таблиц в БД еще нет
 def createTables(connection, cursor):
-    cursor.execute("SELECT count(*) count FROM dba_tables where table_name = 'CURRENCY_LIST'") 
-    table1 = cursor.fetchone()
-    if not table1[0]:
-        try:
-            cursor.execute("CREATE TABLE CURRENCY_LIST(ABBREVIATION VARCHAR2(3 CHAR) NOT NULL,DECRYPTION VARCHAR2(50 CHAR) NOT NULL,CONSTRAINT ABBREVIATION_PK PRIMARY KEY (ABBREVIATION))")
-            fillTableCurrencyList(connection, cursor)
-        except cx_Oracle.IntegrityError:
-            print("Ошибка создания таблицы CURRENCY_LIST")
-    else:
+    #Создание и заполнение таблицы CURRENCY_LIST
+    try:
+        cursor.execute("CREATE TABLE CURRENCY_LIST(ABBREVIATION VARCHAR2(3 CHAR) NOT NULL,DECRYPTION VARCHAR2(50 CHAR) NOT NULL,CONSTRAINT ABBREVIATION_PK PRIMARY KEY (ABBREVIATION))")
+        fillTableCurrencyList(connection, cursor)
+        connection.commit()
+        print("Tаблицы CURRENCY_LIST создана")
+    except cx_Oracle.DatabaseError:
+        print("Таблица CURRENCY_LIST уже есть в БД")
         pass
-    
-    cursor.execute("SELECT count(*) count FROM dba_tables where table_name = 'CURRENCY_RATES'")
-    table2 = cursor.fetchone()
-    if not table2[0]:
-        try:
-            strCreate = """CREATE TABLE CURRENCY_RATES
+    #Создание таблицы CURRENCY_RATES
+    try:
+        strCreate = """CREATE TABLE CURRENCY_RATES
 (DATES VARCHAR2(10 CHAR) NOT NULL,
 USDAED NUMBER(37,17),USDAFN NUMBER(37,17),USDALL NUMBER(37,17),USDAMD NUMBER(37,17),USDANG NUMBER(37,17),USDAOA NUMBER(37,17),USDARS NUMBER(37,17),USDAUD NUMBER(37,17),
 USDAWG NUMBER(37,17),USDAZN NUMBER(37,17),USDBAM NUMBER(37,17),USDBBD NUMBER(37,17),USDBDT NUMBER(37,17),USDBGN NUMBER(37,17),USDBHD NUMBER(37,17),USDBIF NUMBER(37,17),
@@ -188,12 +184,13 @@ USDXAU NUMBER(37,17),USDXCD NUMBER(37,17),USDXDR NUMBER(37,17),USDXOF NUMBER(37,
 USDZMW NUMBER(37,17),USDZWL NUMBER(37,17),
 CONSTRAINT DATES_PK PRIMARY KEY (DATES)
 )"""
-            cursor.execute(strCreate)
-        except cx_Oracle.IntegrityError:
-            print("Ошибка создания таблицы CURRENCY_RATES")
-    else:
+        cursor.execute(strCreate)
+        connection.commit()
+        print("Tаблицы CURRENCY_RATES создана")
+    except cx_Oracle.DatabaseError:
+        print("Таблица CURRENCY_RATES уже есть в БД")
         pass
-    connection.commit()
+    
     
 #Функция валидации стартовой даты. Формат 'YYYY-MM-DD'
 def checkDate(date):
@@ -216,8 +213,10 @@ def checkDate(date):
 #Функция валидации стартовой денежной суммы.(1-1000000)
 def checkMoney(money):
     if not money.isdigit():
+        print("Введены не цифры")
         return False
     if int(money) < 1 or int(money) >= 1000000:
+        print("Выход за пределы 1-999999")
         return False
     return True
 
@@ -236,13 +235,16 @@ def printResult(resultList, cursor):
     print("Количество дней: " + str(len(resultList)))
  
 def main():
+    #Инициализация библиотеки cx_Oracle при помощи Oracle Instant Client. Можно убрать эту часть если база данных установлена локально на устройстве.
     lib_dir = input("Введите путь к Oracle Instant Client ")
     cx_Oracle.init_oracle_client(lib_dir=lib_dir)
+    #Формирование данных для аторизации на прокси-сервере. Необходимы для выполнения запросов к API, в подклячении к БД не учавствуют. 
     proxy_url = input("Введите имя и порт прокси сервера (http://cproxy.udsu.ru:8080) Если прокси сервер не используется, пропустить, нажав ENTER ")
     proxies = {'http': proxy_url}
     log = input("Введите логин прокси. Если прокси сервер не используется, пропустить, нажав ENTER ")
     password = input("Введите пароль прокси. Если прокси сервер не используется, пропустить, нажав ENTER ")
     auth = HTTPProxyAuth(log, password)
+    
     connection = None
     login = input("Введите логин доступа к БД ")
     password = input("Введите пароль доступа к БД ")
@@ -256,12 +258,12 @@ def main():
     cur = connection.cursor()
     startDate = input("Введите начальную дату в формате 'YYYY-MM-DD'Ограничение: позже 1999-01-01 ")
     while not checkDate(startDate):
-        print("Неверный формат даты")
+        print("Неверный формат даты, повторите ввод")
         startDate = input("Введите начальную дату в формате 'YYYY-MM-DD' Ограничение: позже 1999-01-01 ")
-    startMoney = input("Введите начальную сумму в долларах ")
+    startMoney = input("Введите начальную сумму в долларах в пределах от 1 до 999999 долларов ")
     while not checkMoney(startMoney):
-        print("Неверный ввод")
-        startMoney = input("Введите начальную сумму в долларах ")
+        print("Неверный формат суммы, повторите ввод")
+        startMoney = input("Введите начальную сумму в долларах в пределах от 1 до 999999 долларов ")
     createTables(connection, cur)
     forPrint = getMillion(cur, connection, startDate, startMoney, proxies, auth)
     printResult(forPrint, cur)
